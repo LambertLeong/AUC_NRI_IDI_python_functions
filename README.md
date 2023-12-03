@@ -1,5 +1,5 @@
 # AUC_NRI_IDI_python_functions
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4741253.svg)](https://doi.org/10.5281/zenodo.4741253)
+[![DOI](https://zenodo.org/badge/365029676.svg)](https://zenodo.org/doi/10.5281/zenodo.4741234)
 
 Custom python functions to help you further analyse machine learning models and diagnostic test.
 
