@@ -16,19 +16,26 @@ def bootstrap_results(y_truth: np.ndarray, y_pred: np.ndarray, num_bootstraps: i
     """
     Perform bootstrapping for ROC curve analysis.
 
+    This function samples with replacement from the prediction indices to create bootstrap samples, and then computes the true positive rates (TPRs) and false positive rates (FPRs) for each bootstrap. It calculates and returns the mean TPRs and FPRs at a set of base thresholds, as well as the list of all TPRs and FPRs from each bootstrap iteration.
+
     Args:
         y_truth (np.ndarray): Ground truth labels.
         y_pred (np.ndarray): Predicted probabilities.
         num_bootstraps (int, optional): Number of bootstrap iterations. Default is 1000.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray]: Base thresholds, mean true positive rates, mean false positive rates.
+        Tuple[np.ndarray, np.ndarray, np.ndarray, List[np.ndarray], List[np.ndarray]]:
+            - base_thresh (np.ndarray): Base thresholds used for interpolation.
+            - thresh_mean_tprs (np.ndarray): Mean true positive rates interpolated at base thresholds.
+            - thresh_mean_fprs (np.ndarray): Mean false positive rates interpolated at base thresholds.
+            - tprs (List[np.ndarray]): List of true positive rates for each bootstrap sample.
+            - fprs (List[np.ndarray]): List of false positive rates for each bootstrap sample.
     """
     n_bootstraps = num_bootstraps 
     rng_seed = 42  # Control reproducibility
     rng = np.random.RandomState(rng_seed)
-    tprs = []
-    fprs = []
+    thresh_tprs, thresh_fprs = [], []
+    tprs, fprs = [],[]
     base_thresh = np.linspace(0, 1, 101)
 
     for i in range(n_bootstraps):
@@ -39,20 +46,22 @@ def bootstrap_results(y_truth: np.ndarray, y_pred: np.ndarray, num_bootstraps: i
             # We need at least one positive and one negative sample for ROC AUC
             continue
         fpr, tpr, thresh = metrics.roc_curve(y_truth[indices], y_pred[indices])
+        tprs.append(tpr)
+        fprs.append(fpr)
         thresh = thresh[1:]
         thresh = np.append(thresh, [0.0])
         thresh = thresh[::-1]
-        fpr = np.interp(base_thresh, thresh, fpr[::-1])
-        tpr = np.interp(base_thresh, thresh, tpr[::-1])
-        tprs.append(tpr)
-        fprs.append(fpr)
+        thresh_fpr = np.interp(base_thresh, thresh, fpr[::-1])
+        thresh_tpr = np.interp(base_thresh, thresh, tpr[::-1])
+        thresh_tprs.append(thresh_tpr)
+        thresh_fprs.append(thresh_fpr)
 
-    tprs = np.array(tprs)
-    mean_tprs = tprs.mean(axis=0)
-    fprs = np.array(fprs)
-    mean_fprs = fprs.mean(axis=0)
+    thresh_tprs = np.array(thresh_tprs)
+    thresh_mean_tprs = thresh_tprs.mean(axis=0)
+    thresh_fprs = np.array(thresh_fprs)
+    thresh_mean_fprs = thresh_fprs.mean(axis=0)
 
-    return base_thresh, mean_tprs, mean_fprs
+    return base_thresh, thresh_mean_tprs, thresh_mean_fprs, tprs, fprs
 
 def calculate_auc_with_ci(ground_truth: np.ndarray, predicted_probabilities: np.ndarray, num_bootstraps: int = 1000) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float]:
     """
@@ -69,45 +78,27 @@ def calculate_auc_with_ci(ground_truth: np.ndarray, predicted_probabilities: np.
         upper true positive rates, mean AUC, and AUC standard deviation.
     """
 
-    num_bootstraps = num_bootstraps
-    random_seed = 42  # Control reproducibility
-    bootstrapped_scores = []
-
-    true_labels = ground_truth
-    probabilities = predicted_probabilities
-
-    random_state = np.random.RandomState(random_seed)
-    true_positive_rates = []
-    auc_values = []
-    base_fpr = np.linspace(0, 1, 101)
-
-    for i in range(num_bootstraps):
-        # Bootstrap by sampling with replacement on the prediction indices
-        indices = random_state.randint(0, len(probabilities), len(probabilities))
-
-        if len(np.unique(true_labels[indices])) < 2:
-            # We need at least one positive and one negative sample for ROC AUC
-            continue
-
-        auc_score = roc_auc_score(true_labels[indices], probabilities[indices])
-        bootstrapped_scores.append(auc_score)
-
-        fpr, tpr, _ = metrics.roc_curve(true_labels[indices], probabilities[indices])
-        roc_auc = metrics.auc(fpr, tpr)
-        auc_values.append(roc_auc)
-        tpr = np.interp(base_fpr, fpr, tpr)
+    base_thresh, _, _, tprs, fprs = bootstrap_results(ground_truth, predicted_probabilities, num_bootstraps)
+    base_thresh=base_thresh
+    bootstrapped_aucs,true_positive_rates = [], []
+    for i, v in enumerate(tprs):
+        fpr=fprs[i]
+        auc = metrics.auc(fpr, v)
+        bootstrapped_aucs.append(auc)
+        tpr = np.interp(base_thresh, fpr, v)
         tpr[0] = 0.0
         true_positive_rates.append(tpr)
-
     true_positive_rates = np.array(true_positive_rates)
     mean_true_positive_rates = true_positive_rates.mean(axis=0)
+    std_auc = np.std(bootstrapped_aucs)
     std_true_positive_rates = true_positive_rates.std(axis=0)
-    mean_auc = metrics.auc(base_fpr, mean_true_positive_rates)
-    std_auc = np.std(auc_values)
+    #mean_auc = metrics.auc(base_fpr, mean_tprs)
+    mean_auc = metrics.auc(base_thresh, mean_true_positive_rates)
+    std_auc = np.std(bootstrapped_aucs)
     upper_true_positive_rates = np.minimum(mean_true_positive_rates + std_true_positive_rates * 2, 1)
     lower_true_positive_rates = mean_true_positive_rates - std_true_positive_rates * 2
-
-    return base_fpr, mean_true_positive_rates, lower_true_positive_rates, upper_true_positive_rates, mean_auc, std_auc
+   
+    return base_thresh, mean_true_positive_rates, lower_true_positive_rates, upper_true_positive_rates, mean_auc, std_auc
 
 def plot_comparing_aucs(truth: np.ndarray, reference_model: np.ndarray, new_model: np.ndarray, n_bootstraps: int = 1000, save: bool = False):
     """
@@ -296,8 +287,8 @@ def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, 
     """
     ref_fpr, ref_tpr, ref_thresholds = metrics.roc_curve(y_truth, ref_model)
     new_fpr, new_tpr, new_thresholds = metrics.roc_curve(y_truth, new_model)
-    base, mean_tprs, mean_fprs = bootstrap_results(y_truth, new_model, 100)
-    base2, mean_tprs2, mean_fprs2 = bootstrap_results(y_truth, ref_model, 100)
+    base, mean_tprs, mean_fprs,_,_ = bootstrap_results(y_truth, new_model, 100)
+    base2, mean_tprs2, mean_fprs2,_,_ = bootstrap_results(y_truth, ref_model, 100)
     is_pos, is_neg, idi_event = area_between_curves(mean_tprs, mean_tprs2)
     ip_pos, ip_neg, idi_nonevent = area_between_curves(mean_fprs2, mean_fprs)
     
