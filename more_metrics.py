@@ -12,7 +12,7 @@ from typing import Tuple, List, Union
 import matplotlib.colors as mcolors
 import sys, random
 
-def bootstrap_results(y_truth: np.ndarray, y_pred: np.ndarray, num_bootstraps: int = 1000) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def bootstrap_results(y_truth: np.ndarray, y_pred: np.ndarray, num_bootstraps: int = 1000) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Perform bootstrapping for ROC curve analysis.
 
@@ -30,15 +30,32 @@ def bootstrap_results(y_truth: np.ndarray, y_pred: np.ndarray, num_bootstraps: i
             - thresh_mean_fprs (np.ndarray): Mean false positive rates interpolated at base thresholds.
             - tprs (List[np.ndarray]): List of true positive rates for each bootstrap sample.
             - fprs (List[np.ndarray]): List of false positive rates for each bootstrap sample.
+     Raises:
+        ValueError: If all elements in y_truth are the same, or if y_truth or y_pred are empty.
+        TypeError: If y_truth or y_pred are not numpy arrays.
     """
+    # Check if inputs are numpy arrays
+    if not isinstance(y_truth, np.ndarray) or not isinstance(y_pred, np.ndarray):
+        raise TypeError("y_truth and y_pred must be numpy arrays")
+
+    # Check if inputs are non-empty
+    if y_truth.size == 0 or y_pred.size == 0:
+        raise ValueError("y_truth and y_pred must not be empty")
+    
+    # Check if all els are th same    
+    if len(np.unique(y_truth)) < 2:
+        raise ValueError("All elements in y_truth are the same. Need at least one positive and one negative sample for ROC AUC.")
+
     n_bootstraps = num_bootstraps 
     rng_seed = 42  # Control reproducibility
     rng = np.random.RandomState(rng_seed)
     thresh_tprs, thresh_fprs = [], []
     tprs, fprs = [],[]
     base_thresh = np.linspace(0, 1, 101)
-
-    for i in range(n_bootstraps):
+    
+    #for i in range(n_bootstraps):
+    i=0
+    while i<n_bootstraps:
         # Bootstrap by sampling with replacement on the prediction indices
         indices = rng.randint(0, len(y_pred), len(y_pred))
 
@@ -55,12 +72,13 @@ def bootstrap_results(y_truth: np.ndarray, y_pred: np.ndarray, num_bootstraps: i
         thresh_tpr = np.interp(base_thresh, thresh, tpr[::-1])
         thresh_tprs.append(thresh_tpr)
         thresh_fprs.append(thresh_fpr)
+        i+=1
 
     thresh_tprs = np.array(thresh_tprs)
     thresh_mean_tprs = thresh_tprs.mean(axis=0)
     thresh_fprs = np.array(thresh_fprs)
     thresh_mean_fprs = thresh_fprs.mean(axis=0)
-
+    
     return base_thresh, thresh_mean_tprs, thresh_mean_fprs, tprs, fprs
 
 def calculate_auc_with_ci(ground_truth: np.ndarray, predicted_probabilities: np.ndarray, num_bootstraps: int = 1000) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float]:
@@ -92,7 +110,6 @@ def calculate_auc_with_ci(ground_truth: np.ndarray, predicted_probabilities: np.
     mean_true_positive_rates = true_positive_rates.mean(axis=0)
     std_auc = np.std(bootstrapped_aucs)
     std_true_positive_rates = true_positive_rates.std(axis=0)
-    #mean_auc = metrics.auc(base_fpr, mean_tprs)
     mean_auc = metrics.auc(base_thresh, mean_true_positive_rates)
     std_auc = np.std(bootstrapped_aucs)
     upper_true_positive_rates = np.minimum(mean_true_positive_rates + std_true_positive_rates * 2, 1)
@@ -246,6 +263,9 @@ def category_free_nri(y_truth: np.ndarray, y_ref: np.ndarray, y_new: np.ndarray)
     Returns:
         Tuple[float, float, float]: NRI for events, NRI for nonevents, and total NRI.
     """
+    if not np.issubdtype(y_truth.dtype, np.number):
+        raise TypeError("All elements must be numerical")
+
     event_index = np.where(y_truth == 1)[0]
     nonevent_index = np.where(y_truth == 0)[0]
     events_up, events_down = track_movement(y_ref, y_new, event_index)
