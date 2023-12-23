@@ -8,7 +8,7 @@ import numpy as np
 from sklearn import metrics
 from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Dict
 import matplotlib.colors as mcolors
 import sys, random
 
@@ -159,7 +159,7 @@ def plot_comparing_aucs(truth: np.ndarray, reference_model: np.ndarray, new_mode
     plt.legend(loc="lower right", fontsize=13)
     plt.gca().set_aspect('equal', adjustable='box')
     if save:
-        plt.savefig('roc_curve.png', dpi=300, bbox_inches='tight')
+        ax.savefig('roc_curve.png', dpi=300, bbox_inches='tight')
 
 def check_cat(prob: float, thresholds: List[float]) -> int:
     """
@@ -197,7 +197,7 @@ def make_cat_matrix(ref: np.ndarray, new: np.ndarray, indices: np.ndarray, thres
         mat[row, col] += 1
     return mat
 
-def nri(y_truth: np.ndarray, y_ref: np.ndarray, y_new: np.ndarray, risk_thresholds: List[float]) -> Tuple[float, float, float]:
+def calculate_nri(y_truth: np.ndarray, y_ref: np.ndarray, y_new: np.ndarray, risk_thresholds: List[float]) -> Tuple[float, float, float]:
     """
     Calculate the Net Reclassification Improvement (NRI) for a set of predictions.
 
@@ -294,7 +294,8 @@ def area_between_curves(y1: np.ndarray, y2: np.ndarray) -> Tuple[float, float, f
     netArea = posArea - negArea
     return posArea, negArea, netArea
 
-def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, thresholds: dict, save: bool = False):
+def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, 
+             thresholds: Dict[float, str],num_bootstraps: int = 1000, show: bool = True, save: bool = False) -> Tuple[plt.Figure, float, float, float, float, float, float, float]:
     """
     Plot the Integrated Discrimination Improvement (IDI) curve.
 
@@ -303,29 +304,32 @@ def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, 
         ref_model (np.ndarray): Reference model predictions.
         new_model (np.ndarray): New model predictions.
         thresholds (dict): Dictionary of thresholds with their corresponding labels.
+        num_bootstraps (int, optional): Number of bootstrap iterations. Default is 1000.
         save (bool, optional): Whether to save the plot. Default is False.
-    """
+      Returns:
+        Tuple[ax.Figure, float, float, float, float, float, float, float]: A tuple containing the matplotlib figure object 
+        and the calculated metrics (overall IDI, IDI for events, IDI for nonevents, integrated sensitivity positive and negative, 
+        and integrated specificity positive and negative).
+      """
     ref_fpr, ref_tpr, ref_thresholds = metrics.roc_curve(y_truth, ref_model)
     new_fpr, new_tpr, new_thresholds = metrics.roc_curve(y_truth, new_model)
-    base, mean_tprs, mean_fprs,_,_ = bootstrap_results(y_truth, new_model, 100)
-    base2, mean_tprs2, mean_fprs2,_,_ = bootstrap_results(y_truth, ref_model, 100)
+    base, mean_tprs, mean_fprs,_,_ = bootstrap_results(y_truth, new_model, num_bootstraps)
+    base2, mean_tprs2, mean_fprs2,_,_ = bootstrap_results(y_truth, ref_model, num_bootstraps)
     is_pos, is_neg, idi_event = area_between_curves(mean_tprs, mean_tprs2)
     ip_pos, ip_neg, idi_nonevent = area_between_curves(mean_fprs2, mean_fprs)
-    
-    print('IS positive', round(is_pos, 2), 'IS negative', round(is_neg, 2), 'IDI events', round(idi_event, 2))
-    print('IP positive', round(ip_pos, 2), 'IP negative', round(ip_neg, 2), 'IDI nonevents', round(idi_nonevent, 2))
-    print('IDI =', round(idi_event + idi_nonevent, 2))
-    
-    plt.figure(figsize=(10, 10))
-    ax = plt.axes()
+
+    plt.ioff()
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+    #ax = ax.axes()
     lw = 2
-    plt.plot(base, mean_tprs, 'black', alpha=0.5, label='Events New (New)')
-    plt.plot(base, mean_fprs, 'red', alpha=0.5, label='Nonevents New (New)')
-    plt.plot(base2, mean_tprs2, 'black', alpha=0.7, linestyle='--', label='Events Reference (Ref)')
-    plt.plot(base2, mean_fprs2, 'red', alpha=0.7, linestyle='--', label='Nonevents Reference (Ref)')
-    plt.fill_between(base, mean_tprs, mean_tprs2, color='black', alpha=0.1,
+    ax.plot(base, mean_tprs, 'black', alpha=0.5, label='Events New (New)')
+    ax.plot(base, mean_fprs, 'red', alpha=0.5, label='Nonevents New (New)')
+    ax.plot(base2, mean_tprs2, 'black', alpha=0.7, linestyle='--', label='Events Reference (Ref)')
+    ax.plot(base2, mean_fprs2, 'red', alpha=0.7, linestyle='--', label='Nonevents Reference (Ref)')
+    ax.fill_between(base, mean_tprs, mean_tprs2, color='black', alpha=0.1,
                      label='Integrated Sensitivity (area = %0.2f)' % idi_event)
-    plt.fill_between(base, mean_fprs, mean_fprs2, color='red', alpha=0.1,
+    ax.fill_between(base, mean_fprs, mean_fprs2, color='red', alpha=0.1,
                      label='Integrated Specificity (area = %0.2f)' % idi_nonevent)
 
     def nri_annotation(plt, threshold, label, color):
@@ -338,29 +342,26 @@ def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, 
             text_y_offset = 0.04
             text_y_offset2 = 0.04
             x_offset2 = 0.05
-            print(x_pos + x_offset, (np.mean([mean_tprs2[threshold], mean_tprs[threshold]]) + text_y_offset),
-                  x_pos, (np.mean([mean_tprs2[threshold], mean_tprs[threshold]])))
+            #print(x_pos + x_offset, (np.mean([mean_tprs2[threshold], mean_tprs[threshold]]) + text_y_offset),
+                  #x_pos, (np.mean([mean_tprs2[threshold], mean_tprs[threshold]])))
         text_y_events = np.mean([mean_tprs2[threshold], mean_tprs[threshold]]) + text_y_offset
         text_y_nonevents = np.mean([mean_fprs[threshold], mean_fprs2[threshold]]) + text_y_offset2
 
-        plt.axvline(x=threshold/100, color=color, linestyle='--', alpha=0.5, label=label)
-        plt.annotate('', xy=(x_pos + 0.02, mean_tprs2[threshold + 1]), xycoords='data',
+        ax.axvline(x=threshold/100, color=color, linestyle='--', alpha=0.5, label=label)
+        ax.annotate('', xy=(x_pos + 0.02, mean_tprs2[threshold + 1]), xycoords='data',
                      xytext=(x_pos + 0.02, mean_tprs[threshold]), textcoords='data', arrowprops={'arrowstyle': '|-|'})
-        plt.annotate('NRI$_{events}$ = %0.2f' % (mean_tprs[threshold] - mean_tprs2[threshold]),
+        ax.annotate('NRI$_{events}$ = %0.2f' % (mean_tprs[threshold] - mean_tprs2[threshold]),
                      xy=(x_pos + x_offset, text_y_events), xycoords='data',
                      xytext=(x_pos + x_offset, text_y_events),
                      textcoords='offset points', fontsize=15)
-        plt.annotate('', xy=(x_pos + 0.02, mean_fprs[threshold]), xycoords='data',
+        ax.annotate('', xy=(x_pos + 0.02, mean_fprs[threshold]), xycoords='data',
                      xytext=(x_pos + 0.02, mean_fprs2[threshold]), textcoords='data',
                      arrowprops=dict(arrowstyle='|-|', color='r'))
-        plt.annotate('NRI$_{nonevents}$ = %0.2f' % (mean_fprs2[threshold] - mean_fprs[threshold]),
+        ax.annotate('NRI$_{nonevents}$ = %0.2f' % (mean_fprs2[threshold] - mean_fprs[threshold]),
                      xy=(x_pos + x_offset2, text_y_nonevents), xycoords='data',
                      xytext=(x_pos + x_offset2, text_y_nonevents),
                      textcoords='offset points', fontsize=15)
-        print('Threshold =', round(x_pos, 2), 'NRI events =', round(mean_tprs[threshold] - mean_tprs2[threshold], 4),
-              'NRI nonevents =', round(mean_fprs2[threshold] - mean_fprs[threshold], 4), 'Total =',
-              round((mean_tprs[threshold] - mean_tprs2[threshold]) + (mean_fprs2[threshold] - mean_fprs[threshold]), 4))
-
+        
     def generate_distinct_colors(list_size: int, avoid_red: bool = True, avoid_dark: bool = True) -> list:
         """
         Generate a list of distinct colors, optionally avoiding red and dark (near black) colors.
@@ -391,17 +392,23 @@ def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, 
     for c, i in enumerate(thresholds):
         nri_annotation(plt, int(i), thresholds[i], colors[c])
         
-    plt.xlim([0.0, 1.10])
-    plt.ylim([0.0, 1.10])
+    ax.set_xlim([0.0, 1.10])
+    ax.set_ylim([0.0, 1.10])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    plt.xlabel('Calculated Risk', fontsize=18)
-    plt.ylabel('Sensitivity (black), 1 - Specificity (red)', fontsize=18)
-    plt.legend(loc="upper right", fontsize=11)
-    plt.legend(loc=0, fontsize=11, bbox_to_anchor=(0, 0, 1.2, .9))
-    plt.gca().set_aspect('equal', adjustable='box')
-
+    ax.set_xlabel('Calculated Risk', fontsize=18)
+    ax.set_ylabel('Sensitivity (black), 1 - Specificity (red)', fontsize=18)
+    ax.legend(loc="upper right", fontsize=11)
+    ax.legend(loc=0, fontsize=11, bbox_to_anchor=(0, 0, 1.2, .9))
+    ax.set_aspect('equal', adjustable='box')
     if save:
-        plt.savefig('idi_curve.png', dpi=300, bbox_inches='tight')
-    
-    plt.show()
+        fig.savefig('idi_curve.png', dpi=300, bbox_inches='tight')
+    if show:
+        print('IS positive', round(is_pos, 2), 'IS negative', round(is_neg, 2), 'IDI events', round(idi_event, 2))
+        print('IP positive', round(ip_pos, 2), 'IP negative', round(ip_neg, 2), 'IDI nonevents', round(idi_nonevent, 2))
+        print('IDI =', round(idi_event + idi_nonevent, 2))
+        print('\nThreshold =', round(x_pos, 2), 'NRI events =', round(mean_tprs[threshold] - mean_tprs2[threshold], 4), #TODO: Fix the returns and package these up in there too
+              'NRI nonevents =', round(mean_fprs2[threshold] - mean_fprs[threshold], 4), 'Total =',
+              round((mean_tprs[threshold] - mean_tprs2[threshold]) + (mean_fprs2[threshold] - mean_fprs[threshold]), 4))
+        fig.show()
+    return idi_event + idi_nonevent,idi_event, idi_nonevent, is_pos, is_neg, ip_pos, ip_neg, fig
