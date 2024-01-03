@@ -5,7 +5,7 @@ Custom python functions to help you further analyse machine learning models and 
 
 Will help you make plots and compute evaluation metrics as seen in [Nature Article, Leong et al. 2021](https://www.nature.com/articles/s43856-021-00024-0?source=post_page-----f87a8ec6937b--------------------------------#Fig3)
 
-![From Leong et. al. 2021](idi_auc.png)
+![From Leong et. al. 2021](https://github.com/LambertLeong/AUC_NRI_IDI_python_functions/blob/main/idi_auc.png)
 
 Functions to compute and plot:
 * AUC = Area Under the Curve

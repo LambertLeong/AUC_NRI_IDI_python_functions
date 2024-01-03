@@ -5,44 +5,36 @@ from pathlib import Path
 
 # Add the parent directory to sys.path
 sys.path.append(str(Path(__file__).parent.parent))
-from more_metrics import nri, category_free_nri
+from more_metrics import calculate_nri, category_free_nri, check_cat, track_movement
 
-'''
-def test_nri_normal_case():
-    y_truth = np.array([0, 1, 1, 0, 1])
-    y_ref = np.array([0.2, 0.4, 0.6, 0.5, 0.7])
-    y_new = np.array([0.3, 0.5, 0.7, 0.4, 0.8])
-    risk_thresholds = [0.3, 0.6]
+def test_track_movement():
+    ref = np.array([0.1, 0.2, 0.3, 0.4])
+    new = np.array([0.2, 0.1, 0.4, 0.3])
+    indices = [0, 1, 2, 3]
 
-    nri_events, nri_nonevents, total_nri = nri(y_truth, y_ref, y_new, risk_thresholds)
-    
-    # Assertions based on expected calculations
-    # ...
+    expected_up, expected_down = 2, 2
 
-def test_category_free_nri_normal_case():
-    y_truth = np.array([0, 1, 1, 0, 1])
-    y_ref = np.array([0.2, 0.4, 0.6, 0.5, 0.7])
-    y_new = np.array([0.3, 0.5, 0.7, 0.4, 0.8])
+    up, down = track_movement(ref, new, indices)
 
-    nri_events, nri_nonevents, total_nri = category_free_nri(y_truth, y_ref, y_new)
-    
-    # Assertions based on expected calculations
-    # ...
+    assert up == expected_up
+    assert down == expected_down
 
-def test_nri_with_empty_arrays():
-    with pytest.raises(ValueError):
-        nri(np.array([]), np.array([]), np.array([]), [0.5])
+def test_check_cat():
+    thresholds = [0.2, 0.5, 0.8]
 
-def test_nri_with_single_class():
-    y_truth = np.array([1, 1, 1])
-    y_ref = np.array([0.7, 0.8, 0.9])
-    y_new = np.array([0.8, 0.9, 1.0])
-    risk_thresholds = [0.5]
+    # Test with values within the threshold range
+    assert check_cat(0.1, thresholds) == 0
+    assert check_cat(0.3, thresholds) == 1
+    assert check_cat(0.6, thresholds) == 2
+    assert check_cat(0.8, thresholds) == 2
 
-    nri_events, nri_nonevents, total_nri = nri(y_truth, y_ref, y_new, risk_thresholds)
-    # Assertions for single-class scenario
+    # Test with values outside the threshold range
+    assert check_cat(0.9, thresholds) == 3
+    assert check_cat(-0.1, thresholds) == 0
 
-'''
+    # Test with empty thresholds
+    assert check_cat(0.5, []) == 0
+
 def test_category_free_nri_with_invalid_data():
     y_truth = np.array([0, "a", 1])
     y_ref = np.array([0.2, 0.3, 0.4])
@@ -57,7 +49,7 @@ def test_nri_valid_results():
     y_new = np.array([0.2, 0.7, 0.1, 0.8, 0.4])
     risk_thresholds = [0.3, 0.6]
 
-    nri_events, nri_nonevents, total_nri = nri(y_truth, y_ref, y_new, risk_thresholds)
+    nri_events, nri_nonevents, total_nri = calculate_nri(y_truth, y_ref, y_new, risk_thresholds)
     
     assert isinstance(nri_events, float)
     assert isinstance(nri_nonevents, float)
