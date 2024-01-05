@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="more_metrics",  
-    version="0.9.4", 
+    version="0.10.0", 
     author="Lambert T Leong",  
     author_email="lamberttleong@gmail.com",  
     description="A Python package for computing additional classification metrics for machine learning or AI models. These metrics include and also known as AUC, NRI, and IDI",  
