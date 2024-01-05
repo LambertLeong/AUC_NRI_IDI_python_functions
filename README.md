@@ -7,7 +7,7 @@ Will help you make plots and compute evaluation metrics as seen in [Nature Artic
 
 ![From Leong et. al. 2021](https://github.com/LambertLeong/AUC_NRI_IDI_python_functions/blob/main/idi_auc.png)
 
-Functions to compute and plot:
+Metrics to compute and plot:
 * AUC = Area Under the Curve
 * NRI = Net Reclassification Index
 * IDI = Integrated Discrimination Improvement
