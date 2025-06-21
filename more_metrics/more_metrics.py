@@ -294,7 +294,7 @@ def area_between_curves(y1: np.ndarray, y2: np.ndarray) -> Tuple[float, float, f
     netArea = posArea - negArea
     return posArea, negArea, netArea
 
-def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray, 
+def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray,
              thresholds: Dict[float, str],num_bootstraps: int = 1000, show: bool = True, save: bool = False) ->  Dict:
     """
     Plot the Integrated Discrimination Improvement (IDI) curve.
@@ -442,3 +442,81 @@ def plot_idi(y_truth: np.ndarray, ref_model: np.ndarray, new_model: np.ndarray,
     idi_stats = {'IDI':idi_event + idi_nonevent, 'IDI Events':idi_event, 'IDI Nonevents':idi_nonevent, 'IS Positive':is_pos, 'IS Negative':is_neg, 'IP Positive':ip_pos, 'IP Negative':ip_neg}
     outputs = {'plot':fig,'IDI':idi_stats,'NRI':nris}
     return outputs #idi_event + idi_nonevent,idi_event, idi_nonevent, is_pos, is_neg, ip_pos, ip_neg, fig
+
+def auc_difference_pvalue(y_truth: np.ndarray, reference_model: np.ndarray, new_model: np.ndarray, num_bootstraps: int = 1000) -> Tuple[float, float]:
+    """Compute a bootstrap p-value for the difference in AUC between two models.
+
+    Args:
+        y_truth (np.ndarray): Ground truth labels.
+        reference_model (np.ndarray): Predictions from the reference model.
+        new_model (np.ndarray): Predictions from the new model.
+        num_bootstraps (int, optional): Number of bootstrap iterations. Defaults to 1000.
+
+    Returns:
+        Tuple[float, float]: Mean AUC difference (new - reference) and the corresponding p-value.
+    """
+
+    if not (isinstance(y_truth, np.ndarray) and isinstance(reference_model, np.ndarray) and isinstance(new_model, np.ndarray)):
+        raise TypeError("Inputs must be numpy arrays")
+
+    if y_truth.size == 0 or reference_model.size == 0 or new_model.size == 0:
+        raise ValueError("Inputs must not be empty")
+
+    if not (len(y_truth) == len(reference_model) == len(new_model)):
+        raise ValueError("Input arrays must have the same length")
+
+    rng = np.random.default_rng(42)
+    diffs = []
+    i = 0
+    while i < num_bootstraps:
+        idx = rng.integers(0, len(y_truth), len(y_truth))
+        if len(np.unique(y_truth[idx])) < 2:
+            continue
+        auc_ref = roc_auc_score(y_truth[idx], reference_model[idx])
+        auc_new = roc_auc_score(y_truth[idx], new_model[idx])
+        diffs.append(auc_new - auc_ref)
+        i += 1
+
+    diffs = np.array(diffs)
+    mean_diff = diffs.mean()
+    pval = min(1.0, 2 * min(np.mean(diffs <= 0), np.mean(diffs >= 0)))
+    return mean_diff, pval
+
+def nri_pvalue(y_truth: np.ndarray, y_ref: np.ndarray, y_new: np.ndarray, risk_thresholds: List[float], num_bootstraps: int = 1000) -> Tuple[float, float]:
+    """Compute a bootstrap p-value for the Net Reclassification Index (NRI).
+
+    Args:
+        y_truth (np.ndarray): Ground truth labels.
+        y_ref (np.ndarray): Reference model predictions.
+        y_new (np.ndarray): New model predictions.
+        risk_thresholds (List[float]): Thresholds used for NRI calculation.
+        num_bootstraps (int, optional): Number of bootstrap iterations. Defaults to 1000.
+
+    Returns:
+        Tuple[float, float]: Mean NRI and the corresponding p-value.
+    """
+
+    if not (isinstance(y_truth, np.ndarray) and isinstance(y_ref, np.ndarray) and isinstance(y_new, np.ndarray)):
+        raise TypeError("Inputs must be numpy arrays")
+
+    if y_truth.size == 0 or y_ref.size == 0 or y_new.size == 0:
+        raise ValueError("Inputs must not be empty")
+
+    if not (len(y_truth) == len(y_ref) == len(y_new)):
+        raise ValueError("Input arrays must have the same length")
+
+    rng = np.random.default_rng(42)
+    nris = []
+    i = 0
+    while i < num_bootstraps:
+        idx = rng.integers(0, len(y_truth), len(y_truth))
+        if len(np.unique(y_truth[idx])) < 2:
+            continue
+        _, _, nri = calculate_nri(y_truth[idx], y_ref[idx], y_new[idx], risk_thresholds)
+        nris.append(nri)
+        i += 1
+
+    nris = np.array(nris)
+    mean_nri = nris.mean()
+    pval = min(1.0, 2 * min(np.mean(nris <= 0), np.mean(nris >= 0)))
+    return mean_nri, pval

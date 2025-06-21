@@ -5,10 +5,10 @@ from pathlib import Path
 
 # Add the parent directory to sys.path
 sys.path.append(str(Path(__file__).parent.parent))
-from more_metrics import calculate_auc_with_ci
+from more_metrics import calculate_auc_with_ci, auc_difference_pvalue
 from sklearn import metrics
 
-def test_calculate_auc_with_ci_valid_data(mocker):
+def test_calculate_auc_with_ci_valid_data():
     # Mock the bootstrap_results function
 
     # Define test data
@@ -53,4 +53,53 @@ def test_non_array_input():
 def test_invalid_ground_truth():
     with pytest.raises(ValueError):
         calculate_auc_with_ci(np.array([1, 1, 1, 1]), np.array([0.2, 0.6, 0.8, 0.3]), 1000)
+
+def test_auc_difference_pvalue_range():
+    truth = np.array([0, 1, 0, 1])
+    ref = np.array([0.1, 0.4, 0.35, 0.8])
+    new = np.array([0.2, 0.5, 0.3, 0.9])
+
+    diff, pval = auc_difference_pvalue(truth, ref, new, num_bootstraps=50)
+    assert isinstance(diff, float)
+    assert isinstance(pval, float)
+    assert 0 <= pval <= 1
+
+def test_auc_difference_pvalue_identical_models():
+    truth = np.array([0, 1, 0, 1])
+    preds = np.array([0.1, 0.4, 0.35, 0.8])
+
+    diff, pval = auc_difference_pvalue(truth, preds, preds, num_bootstraps=20)
+    assert diff == pytest.approx(0.0)
+    assert pval == pytest.approx(1.0)
+
+def test_auc_difference_pvalue_significant_difference():
+    y_truth = np.array([0, 0, 1, 1])
+    ref = np.array([0.5, 0.5, 0.5, 0.5])
+    new = np.array([0.0, 0.0, 1.0, 1.0])
+
+    diff, pval = auc_difference_pvalue(y_truth, ref, new, num_bootstraps=20)
+    assert diff > 0.4
+    assert pval < 0.01
+
+def test_auc_difference_pvalue_invalid_inputs():
+    truth = np.array([0, 1])
+    ref = np.array([0.1, 0.4])
+    new = np.array([0.2])
+
+    with pytest.raises(ValueError):
+        auc_difference_pvalue(truth, ref, new)
+
+    with pytest.raises(TypeError):
+        auc_difference_pvalue([0, 1], [0.1, 0.4], [0.2, 0.3])
+
+def test_auc_difference_pvalue_reproducible():
+    truth = np.array([0, 1, 0, 1])
+    ref = np.array([0.1, 0.4, 0.35, 0.8])
+    new = np.array([0.2, 0.5, 0.3, 0.9])
+
+    diff1, pval1 = auc_difference_pvalue(truth, ref, new, num_bootstraps=30)
+    diff2, pval2 = auc_difference_pvalue(truth, ref, new, num_bootstraps=30)
+
+    assert diff1 == pytest.approx(diff2)
+    assert pval1 == pytest.approx(pval2)
 
