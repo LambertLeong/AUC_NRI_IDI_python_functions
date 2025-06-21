@@ -11,8 +11,33 @@ Metrics to compute and plot:
 * AUC = Area Under the Curve
 * NRI = Net Reclassification Index
 * IDI = Integrated Discrimination Improvement
+* Functions to compute bootstrap p-values for AUC and NRI differences
 
 Run "example.ipynb" Jupyter notebook to see and use functions
+
+## Installation
+```bash
+pip install -r requirements.txt
+pip install .
+```
+
+## Running tests
+```bash
+pytest -q
+```
+
+## Formulas
+**AUC**
+\[AUC = \int_0^1 TPR(FPR)\, dFPR \]
+
+**NRI**
+\[NRI = (P_{\text{up}|\text{event}} - P_{\text{down}|\text{event}}) + (P_{\text{down}|\text{non-event}} - P_{\text{up}|\text{non-event}})\]
+
+**IDI**
+\[IDI = (\bar{p}_{\text{new},1} - \bar{p}_{\text{ref},1}) - (\bar{p}_{\text{new},0} - \bar{p}_{\text{ref},0})\]
+
+## Usage
+Import the package and call any metric helpers. See the example notebook for a detailed walkthrough.
 
 Code and concepts further explained in the following post: "[Area Under the Curve and Beyond](https://www.lambertleong.com/thoughts/AUC-IDI-NRI)" or "[On Medium/Towards Data Science](https://medium.com/towards-data-science/area-under-the-curve-and-beyond-f87a8ec6937b)"
 
