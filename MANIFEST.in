@@ -1,0 +1,6 @@
+include CHANGELOG.md
+include CITATION.cff
+include CONTRIBUTING.md
+recursive-include docs *.md
+recursive-include examples *.ipynb
+recursive-include tests *.py

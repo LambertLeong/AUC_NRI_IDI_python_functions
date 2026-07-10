@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a focused addition or API improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What analysis or workflow cannot currently be completed?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the API and expected output, not only an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: methods
+    attributes:
+      label: Statistical basis
+      description: For methodological changes, provide formulas and primary references.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe workarounds or narrower designs.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope checks
+      options:
+        - label: This request does not include protected health information or sensitive data.
+          required: true
+        - label: I have reviewed the README limitations and migration guide.
+          required: true

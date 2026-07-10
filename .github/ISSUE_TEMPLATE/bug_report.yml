@@ -1,0 +1,52 @@
+name: Bug report
+description: Report reproducible incorrect or unexpected behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include protected health information or other sensitive data.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include small synthetic inputs, code, output, and the random seed.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include more-metrics, Python, NumPy, scikit-learn, and Matplotlib versions.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - AUC
+        - Categorical NRI
+        - Continuous NRI
+        - IDI
+        - Bootstrap inference
+        - Permutation inference
+        - Plotting
+        - Packaging or documentation
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include a hand calculation or methodological reference when relevant.

@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff formatting
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy
+
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install package and test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Run tests
+        run: pytest
+
+  notebook:
+    name: Notebook smoke test
+    runs-on: ubuntu-latest
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package and notebook dependencies
+        run: python -m pip install --upgrade pip && python -m pip install ".[dev]"
+      - name: Execute example notebook
+        run: >-
+          jupyter nbconvert
+          --to notebook
+          --execute examples/example.ipynb
+          --output-dir "${RUNNER_TEMP}"
+          --ExecutePreprocessor.timeout=180
+
+  build:
+    name: Build and validate distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build twine
+      - name: Build wheel and source distribution
+        run: python -m build
+      - name: Validate package metadata
+        run: python -m twine check dist/*
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+
+  install:
+    name: Install built ${{ matrix.artifact }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [wheel, sdist]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Select distribution
+        id: distribution
+        shell: bash
+        run: |
+          if [[ "${{ matrix.artifact }}" == "wheel" ]]; then
+            echo "path=$(find dist -maxdepth 1 -name '*.whl' -print -quit)" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install distribution
+        run: python -m pip install "${{ steps.distribution.outputs.path }}"
+      - name: Verify installed import and metadata
+        run: |
+          cd "$RUNNER_TEMP"
+          python -c "import importlib.metadata, more_metrics; assert importlib.metadata.version('more-metrics') == '1.0.0'"

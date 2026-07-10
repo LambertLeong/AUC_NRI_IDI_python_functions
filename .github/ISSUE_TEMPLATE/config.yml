@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security-sensitive report
+    url: https://github.com/LambertLeong/AUC_NRI_IDI_python_functions/security/advisories/new
+    about: Privately report a security vulnerability.

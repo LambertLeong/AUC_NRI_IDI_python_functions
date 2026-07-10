@@ -100,7 +100,11 @@ def continuous_nri(
     )
 
 
-def idi(y_true: npt.ArrayLike, reference: npt.ArrayLike, new: npt.ArrayLike) -> IDIResult:
+def idi(
+    y_true: npt.ArrayLike,
+    reference: npt.ArrayLike,
+    new: npt.ArrayLike,
+) -> IDIResult:
     """Calculate standard integrated discrimination improvement.
 
     IDI is the new model's discrimination slope minus the reference model's

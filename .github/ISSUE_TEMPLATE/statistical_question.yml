@@ -1,0 +1,29 @@
+name: Statistical question
+description: Ask about a definition, result, or methodological limitation.
+title: "[Methods]: "
+labels:
+  - question
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: State the estimand, function, and point of uncertainty.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Reproducible example
+      description: Use small synthetic or public data and include the random seed.
+      render: python
+  - type: textarea
+    id: interpretation
+    attributes:
+      label: Current interpretation
+      description: Explain how you currently interpret the output.
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Link primary methodological literature when applicable.
