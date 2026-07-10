@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "more-metrics: AUC, NRI, and IDI for binary probability models"
+type: software
+authors:
+  - family-names: Leong
+    given-names: Lambert T.
+repository-code: "https://github.com/LambertLeong/AUC_NRI_IDI_python_functions"
+url: "https://doi.org/10.5281/zenodo.4741234"
+doi: 10.5281/zenodo.4741234
+license: GPL-3.0-only
+version: 1.0.0
+date-released: "2026-07-09"
+abstract: "Statistically sound AUC, NRI, and IDI metrics for binary classifiers"
+keywords:
+  - AUC
+  - net reclassification improvement
+  - integrated discrimination improvement
+  - binary classification
+  - clinical prediction
